@@ -50,7 +50,8 @@ function App() {
     };
 
     return (
-        <StoreContext.Provider value={{ token, setToken, srcToken, setSrcToken, destToken, setDestToken, calculateTokens }}>
+        <StoreContext.Provider
+            value={{token, setToken, srcToken, setSrcToken, destToken, setDestToken, calculateTokens}}>
             <BrowserRouter>
                 <div className="App">
                     <Routes>
@@ -58,6 +59,9 @@ function App() {
                         <Route path="/selectToken" element={<SelectToken/>}/>
                         <Route path="/buy/:token" element={<BuyToken/>}/>
                         <Route path="/sell/:token" element={<SellToken/>}/>
+                        <Route path="/addLiquidity/:token" element={<AddLiquidity/>}/>
+                        <Route path="/removeLiquidity/:token" element={<RemoveLiquidity/>}/>
+                        <Route path="/claimRewards/:token" element={<ClaimRewards/>}/>
                     </Routes>
                     <Navigation/>
                 </div>
@@ -87,13 +91,13 @@ function Navigation() {
                         <a href={`/sell/${store.token?.name}`}>Sell {store.token?.name}</a>
                     </div>
                     <div>
-                        <a href={"/selectToken"}>Add liquidity</a>
+                        <a href={`/addLiquidity/${store.token?.name}`}>Add liquidity</a>
                     </div>
                     <div>
-                        <a href={"/selectToken"}>Remove liquidity</a>
+                        <a href={`/removeLiquidity/${store.token?.name}`}>Remove liquidity</a>
                     </div>
                     <div>
-                        <a href={"/selectToken"}>Claim rewards</a>
+                        <a href={`/claimRewards/${store.token?.name}`}>Claim rewards</a>
                     </div>
                 </>
             }
@@ -148,15 +152,18 @@ function SelectToken() {
         <>
             <div style={{display: 'flex', width: '30%', flexWrap: 'wrap'}}>
                 {
-                    tokens.map((t: any, i: number) => <div key={i}
-                        onClick={onSelectToken.bind(null, t)}
-                        style={{
-                            width: '100px',
-                            opacity: !selectToken.name || selectToken.name === t.name ? 1 : 0.2,
-                            margin: '4px',
-                            height: '100px',
-                            border: '1px solid black'
-                        }}>{t.name}</div>)
+                    tokens.map((t: any, i: number) =>
+                        <div key={i}
+                             onClick={onSelectToken.bind(null, t)}
+                             style={{
+                                 width: '100px',
+                                 opacity: !selectToken.name || selectToken.name === t.name ? 1 : 0.2,
+                                 margin: '4px',
+                                 height: '100px',
+                                 border: '1px solid black'
+                             }}>
+                            {t.name}
+                        </div>)
                 }
             </div>
         </>
@@ -167,21 +174,93 @@ function BuyToken() {
 
     const store = useContext(StoreContext);
 
+    return <TokensOperation
+        getBalances={() => {
+            return Promise.all([
+                API.getTonBalance(),
+                API.getTokenBalance(store.token.name)
+            ]);
+        }}
+        srcToken={"ton"}
+        destToken={store.token.name}
+        title={`Swap Ton to ${store.token?.name}`}
+        emoji={"⬇️"}
+    />
+}
+
+function AddLiquidity() {
+
+    const store = useContext(StoreContext);
+
+    return <TokensOperation
+        getBalances={() => {
+            return Promise.all([
+                API.getTonBalance(),
+                API.getTokenBalance(store.token.name)
+            ]);
+        }}
+        srcToken={"ton"}
+        destToken={store.token.name}
+        title={`Add ${store.token?.name}/TON liquidity`}
+        emoji={"➕"}
+    />
+}
+
+function RemoveLiquidity() {
+
+    const store = useContext(StoreContext);
+
+    return <TokensOperation
+        getBalances={() => {
+            return Promise.all([
+                API.getTonBalance(),
+                API.getTokenBalance(store.token.name)
+            ]);
+        }}
+        srcToken={"ton"}
+        destToken={store.token.name}
+        title={`Remove ${store.token?.name}/TON liquidity`}
+        emoji={"➖"}
+    />
+}
+
+function SellToken() {
+
+    const store = useContext(StoreContext);
+
+    return <TokensOperation
+        getBalances={() => {
+            return Promise.all([
+                API.getTokenBalance(store.token.name),
+                API.getTonBalance()
+            ]);
+        }}
+        srcToken={store.token.name}
+        destToken={"ton"}
+        title={`Swap ${store.token?.name} to Ton`}
+        emoji={"⬇️"}
+    />
+}
+
+function TokensOperation(props: any) {
+    const store = useContext(StoreContext);
+
     let params = useParams();
 
     useEffect(() => {
+        const tokens: [] = require('./tokens.json');
+        const token: any = tokens.find((t: any) => t.name === params.token);
+        store.setToken(token);
+    });
+
+    useEffect(() => {
+        if (!props.srcToken || !props.destToken) return;
         (async () => {
-            const tokens: [] = require('./tokens.json');
-            const token:any = tokens.find((t:any) => t.name === params.token);
-            store.setToken(token);
-            const [srcTokenBalance, destTokenBalance] = await Promise.all([
-                API.getTonBalance(),
-                API.getTokenBalance(token.name)
-            ]);
-            store.setSrcToken({ balance: srcTokenBalance, name: "ton" });
-            store.setDestToken({ balance: destTokenBalance, name: token.name });
+            const [srcTokenBalance, destTokenBalance] = await props.getBalances();
+            store.setSrcToken({balance: srcTokenBalance, name: props.srcToken});
+            store.setDestToken({balance: destTokenBalance, name: props.destToken});
         })();
-    }, []);
+    }, [props.srcToken, props.destToken])
 
     const onChangeSrc = (amount: string) => {
         store.calculateTokens(parseFloat(amount || "0"), null);
@@ -194,18 +273,18 @@ function BuyToken() {
     return (
         <div style={{padding: '10px'}}>
             <div style={{padding: '10px'}}>
-                Swap Ton to {store.token?.name}
+                {props.title}
             </div>
             <TokenInput tokenInfo={store.srcToken} onChange={onChangeSrc}/>
             <div style={{padding: '10px'}}>
-                ⬇️
+                {props.emoji}
             </div>
             <TokenInput tokenInfo={store.destToken} onChange={onChangeDest}/>
         </div>
     );
 }
 
-function SellToken() {
+function ClaimRewards() {
 
     const store = useContext(StoreContext);
 
@@ -214,42 +293,36 @@ function SellToken() {
     useEffect(() => {
         (async () => {
             const tokens: [] = require('./tokens.json');
-            const token:any = tokens.find((t:any) => t.name === params.token);
+            const token: any = tokens.find((t: any) => t.name === params.token);
             store.setToken(token);
-            const [destTokenBalance, srcTokenBalance] = await Promise.all([
-                API.getTokenBalance(token.name),
-                API.getTonBalance()
+            const [tokenBalance] = await Promise.all([
+                API.getTokenBalance(token.name)
             ]);
-            store.setSrcToken({ balance: destTokenBalance, name: token.name });
-            store.setDestToken({ balance: srcTokenBalance, name: "ton" });
+            store.setSrcToken({balance: tokenBalance, name: token.name});
         })();
     }, []);
 
-    const onChangeSrc = (amount: string) => {
+    const onChangeReward = (amount: string) => {
+        API.getTokenDollarValue(store.srcToken.name, parseFloat(amount)).then((dollarValue: number) => {
+            store.srcToken.dollarValue = dollarValue;
+            store.setSrcToken({...store.srcToken});
+        });
         store.calculateTokens(parseFloat(amount || "0"), null);
-    };
-
-    const onChangeDest = (amount: string) => {
-        store.calculateTokens(null, parseFloat(amount || "0"));
     };
 
     return (
         <div style={{padding: '10px'}}>
             <div style={{padding: '10px'}}>
-                Swap {store.token?.name} to Ton
+                Claim rewards {store.token?.name}
             </div>
-            <TokenInput tokenInfo={store.srcToken} onChange={onChangeSrc}/>
-            <div style={{padding: '10px'}}>
-                ⬇️
-            </div>
-            <TokenInput tokenInfo={store.destToken} onChange={onChangeDest}/>
+            <TokenInput tokenInfo={store.srcToken} onChange={onChangeReward}/>
         </div>
     );
 }
 
 function TokenInput(props: any) {
 
-    const onChange = (input:any) => {
+    const onChange = (input: any) => {
         const val = input.target.value;
         props.onChange(val);
     };
@@ -265,7 +338,7 @@ function TokenInput(props: any) {
                 <span>{props.tokenInfo?.balance || '?'}</span>
             </div>
             <div style={{padding: '10px', display: 'flex'}}>
-                <span style={{ flex: 1, textAlign: 'left'}}>~${props.tokenInfo?.dollarValue || 0}</span>
+                <span style={{flex: 1, textAlign: 'left'}}>~${props.tokenInfo?.dollarValue || 0}</span>
                 <button onClick={maxOnClick}>max</button>
             </div>
         </div>
