@@ -17,33 +17,33 @@ function App() {
         if (srcAmount != null) {
             srcToken.amount = srcAmount;
             setSrcToken({...srcToken});
-            API.getTokenDollarValue(srcToken.name, srcAmount).then((dollarValue: number) => {
-                srcToken.dollarValue = dollarValue;
-                setSrcToken({...srcToken});
-            });
             clearTimeout(timeout.current);
             // @ts-ignore
             timeout.current = setTimeout(async () => {
+                API.getTokenDollarValue([srcToken.name], srcAmount).then((dollarValue: number[]) => {
+                    srcToken.dollarValue = dollarValue[0];
+                    setSrcToken({...srcToken});
+                });
                 const amount = await API.getAmountsOut(srcToken.name, destToken.name, srcAmount, destAmount);
                 destToken.amount = amount;
                 setDestToken({...destToken});
-                destToken.dollarValue = await API.getTokenDollarValue(destToken.name, amount!!);
+                destToken.dollarValue = (await API.getTokenDollarValue([destToken.name], amount!!))[0];
                 setDestToken({...destToken});
             }, 500);
         } else if (destAmount != null) {
             destToken.amount = destAmount;
             setDestToken({...destToken});
-            API.getTokenDollarValue(destToken.name, destAmount).then((dollarValue: number) => {
-                destToken.dollarValue = dollarValue;
-                setDestToken({...destToken});
-            });
             clearTimeout(timeout.current);
             // @ts-ignore
             timeout.current = setTimeout(async () => {
+                API.getTokenDollarValue([destToken.name], destAmount).then((dollarValue: number[]) => {
+                    destToken.dollarValue = dollarValue[0];
+                    setDestToken({...destToken});
+                });
                 const amount = await API.getAmountsOut(srcToken.name, destToken.name, srcAmount, destAmount);
                 srcToken.amount = amount;
                 setSrcToken({...srcToken});
-                srcToken.dollarValue = await API.getTokenDollarValue(srcToken.name, amount!!);
+                srcToken.dollarValue = (await API.getTokenDollarValue([srcToken.name], amount!!))[0];
                 setSrcToken({...srcToken});
             }, 500);
         }
@@ -201,7 +201,7 @@ function AddLiquidity() {
         }}
         srcToken={"ton"}
         destToken={store.token.name}
-        title={`Add ${store.token?.name}/TON liquidity`}
+        title={`Add TON/${store.token?.name} liquidity`}
         emoji={"➕"}
     />
 }
@@ -219,7 +219,7 @@ function RemoveLiquidity() {
         }}
         srcToken={"ton"}
         destToken={store.token.name}
-        title={`Remove ${store.token?.name}/TON liquidity`}
+        title={`Remove TON/${store.token?.name} liquidity`}
         emoji={"➖"}
     />
 }
@@ -296,18 +296,22 @@ function ClaimRewards() {
             const token: any = tokens.find((t: any) => t.name === params.token);
             store.setToken(token);
             const [tokenBalance] = await Promise.all([
-                API.getTokenBalance(token.name)
+                API.getRewards(token.name)
             ]);
             store.setSrcToken({balance: tokenBalance, name: token.name});
         })();
     }, []);
 
     const onChangeReward = (amount: string) => {
-        API.getTokenDollarValue(store.srcToken.name, parseFloat(amount)).then((dollarValue: number) => {
-            store.srcToken.dollarValue = dollarValue;
-            store.setSrcToken({...store.srcToken});
-        });
-        store.calculateTokens(parseFloat(amount || "0"), null);
+        store.srcToken.amount = amount;
+        store.setSrcToken({...store.srcToken});
+
+        if (store.srcToken.name) {
+            API.getTokenDollarValue([store.srcToken.name], parseFloat(amount)).then((dollarValue: number[]) => {
+                store.srcToken.dollarValue = dollarValue[0];
+                store.setSrcToken({...store.srcToken});
+            });
+        }
     };
 
     return (

@@ -1,3 +1,5 @@
+const supportedTokens: any[] = require('./tokens.json');
+
 const sleep = (milliseconds: number) => {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -17,11 +19,8 @@ export const getTonBalance = async () => {
 export const getAmountsOut = async (srcToken: string, destToken: string, srcAmount: number | null, destAmount: number | null) => {
     // Right now only support ton + token
     const token = srcToken === "ton" ? destToken : srcToken;
-
-    await sleep(500);
-    const tokens: any[] = require('./tokens.json');
-    const ratio = (tokens.find((t: any) => t.name === token))?.ratio || 1;
-
+    const [tonDollarValue, tokenDollarValue] = await getTokenDollarValue(["ton", token], 1);
+    const ratio = tokenDollarValue / tonDollarValue;
     if (srcToken === "ton") {
         if (srcAmount != null) {
             return parseFloat((srcAmount * ratio).toPrecision(4));
@@ -37,18 +36,16 @@ export const getAmountsOut = async (srcToken: string, destToken: string, srcAmou
     }
 }
 
-export const getTokenDollarValue = async (token: string, amount: number) => {
-    await sleep(500);
-    let dollarRatio: any;
-    if (token === "ton") {
-        dollarRatio = 1.85;
-    } else {
-        const tokens: any[] = require('./tokens.json');
-        dollarRatio = (tokens.find((t: any) => t.name === token))?.dollar || 1;
-    }
-    return parseFloat((amount * dollarRatio).toPrecision(4));
+export const getTokenDollarValue = async (tokens: string[], amount: number):Promise<number[]> => {
+    tokens = tokens.map(t => t.toLowerCase());
+    const tokenObjects = (supportedTokens.filter((t: any) => tokens.indexOf(t.name.toLowerCase()) !== -1));
+    const coinsResponse = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${tokenObjects.map(t => t.coinGeckoId).join(",")}&vs_currencies=usd&include_market_cap=false&include_24hr_vol=false&include_24hr_change=false&include_last_updated_at=false`);
+    const result = await coinsResponse.json();
+    return tokenObjects.map(t => parseFloat((parseFloat(result[t.coinGeckoId].usd) * amount).toPrecision(4)));
 }
 
 export const getRewards = async (token: string) => {
-
+    return new Promise((resolve) => {
+        setTimeout(resolve.bind(null, (Math.random() * 50).toPrecision(4)), Math.random() * 1500);
+    });
 }
