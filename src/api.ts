@@ -22,10 +22,18 @@ export const getAmountsOut = async (srcToken: string, destToken: string, srcAmou
     const tokens: any[] = require('./tokens.json');
     const ratio = (tokens.find((t: any) => t.name === token))?.ratio || 1;
 
-    if (srcAmount != null) {
-        return parseFloat((srcAmount * ratio).toPrecision(4));
-    } else if (destAmount != null) {
-        return parseFloat((destAmount / ratio).toPrecision(4));
+    if (srcToken === "ton") {
+        if (srcAmount != null) {
+            return parseFloat((srcAmount * ratio).toPrecision(4));
+        } else if (destAmount != null) {
+            return parseFloat((destAmount / ratio).toPrecision(4));
+        }
+    } else {
+        if (srcAmount != null) {
+            return parseFloat((srcAmount / ratio).toPrecision(4));
+        } else if (destAmount != null) {
+            return parseFloat((destAmount * ratio).toPrecision(4));
+        }
     }
 }
 

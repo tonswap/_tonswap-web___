@@ -2,7 +2,6 @@ import React, {useCallback, useContext, useEffect, useRef, useState} from 'react
 import './App.css';
 import * as API from './api';
 import {Routes, Route, Link, BrowserRouter, useParams} from "react-router-dom";
-import {useDebounce, useDebounceCallback} from '@react-hook/debounce'
 
 const StoreContext = React.createContext<any>({});
 
@@ -58,6 +57,7 @@ function App() {
                         <Route path="/" element={<Home/>}/>
                         <Route path="/selectToken" element={<SelectToken/>}/>
                         <Route path="/buy/:token" element={<BuyToken/>}/>
+                        <Route path="/sell/:token" element={<SellToken/>}/>
                     </Routes>
                     <Navigation/>
                 </div>
@@ -84,7 +84,7 @@ function Navigation() {
                         <Link to={`/buy/${store.token?.name}`}>Buy {store.token?.name}</Link>
                     </div>
                     <div>
-                        <a href={"/selectToken"}>Sell</a>
+                        <a href={`/sell/${store.token?.name}`}>Sell {store.token?.name}</a>
                     </div>
                     <div>
                         <a href={"/selectToken"}>Add liquidity</a>
@@ -184,17 +184,59 @@ function BuyToken() {
     }, []);
 
     const onChangeSrc = (amount: string) => {
-        store.calculateTokens(parseFloat(amount || "0"));
+        store.calculateTokens(parseFloat(amount || "0"), null);
     };
 
     const onChangeDest = (amount: string) => {
-        store.calculateTokens(undefined, parseFloat(amount || "0"));
+        store.calculateTokens(null, parseFloat(amount || "0"));
     };
 
     return (
         <div style={{padding: '10px'}}>
             <div style={{padding: '10px'}}>
                 Swap Ton to {store.token?.name}
+            </div>
+            <TokenInput tokenInfo={store.srcToken} onChange={onChangeSrc}/>
+            <div style={{padding: '10px'}}>
+                ⬇️
+            </div>
+            <TokenInput tokenInfo={store.destToken} onChange={onChangeDest}/>
+        </div>
+    );
+}
+
+function SellToken() {
+
+    const store = useContext(StoreContext);
+
+    let params = useParams();
+
+    useEffect(() => {
+        (async () => {
+            const tokens: [] = require('./tokens.json');
+            const token:any = tokens.find((t:any) => t.name === params.token);
+            store.setToken(token);
+            const [destTokenBalance, srcTokenBalance] = await Promise.all([
+                API.getTokenBalance(token.name),
+                API.getTonBalance()
+            ]);
+            store.setSrcToken({ balance: destTokenBalance, name: token.name });
+            store.setDestToken({ balance: srcTokenBalance, name: "ton" });
+        })();
+    }, []);
+
+    const onChangeSrc = (amount: string) => {
+        store.calculateTokens(parseFloat(amount || "0"), null);
+    };
+
+    const onChangeDest = (amount: string) => {
+        store.calculateTokens(null, parseFloat(amount || "0"));
+    };
+
+    return (
+        <div style={{padding: '10px'}}>
+            <div style={{padding: '10px'}}>
+                Swap {store.token?.name} to Ton
             </div>
             <TokenInput tokenInfo={store.srcToken} onChange={onChangeSrc}/>
             <div style={{padding: '10px'}}>
