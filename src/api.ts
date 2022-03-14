@@ -49,3 +49,23 @@ export const getRewards = async (token: string) => {
         setTimeout(resolve.bind(null, (Math.random() * 50).toPrecision(4)), Math.random() * 1500);
     });
 }
+
+export const generateSellLink = (token: string) => {
+    return "https://google.com"
+}
+
+export const generateBuyLink = (token: string) => {
+    return "https://google.com"
+}
+
+export const generateAddLiquidityLink = (token: string, amount: number) => {
+    return "https://google.com"
+}
+
+export const generateRemoveLiquidityLink = (token: string, amount: number) => {
+    return "https://google.com"
+}
+
+export const generateClaimRewards = (token: string, amount: number) => {
+    return "https://google.com"
+}

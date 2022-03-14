@@ -2,6 +2,13 @@ import React, {useCallback, useContext, useEffect, useRef, useState} from 'react
 import './App.css';
 import * as API from './api';
 import {Routes, Route, Link, BrowserRouter, useParams} from "react-router-dom";
+import {
+    generateAddLiquidityLink,
+    generateBuyLink,
+    generateClaimRewards,
+    generateRemoveLiquidityLink,
+    generateSellLink
+} from "./api";
 
 const StoreContext = React.createContext<any>({});
 
@@ -174,7 +181,8 @@ function BuyToken() {
 
     const store = useContext(StoreContext);
 
-    return <TokensOperation
+    return <div>
+        <TokensOperation
         getBalances={() => {
             return Promise.all([
                 API.getTonBalance(),
@@ -186,60 +194,77 @@ function BuyToken() {
         title={`Swap Ton to ${store.token?.name}`}
         emoji={"⬇️"}
     />
+        <button onClick={generateBuyLink.bind(null, store.token?.name, store.token?.amount)}>
+            Buy ${store.token?.name}
+        </button>
+    </div>
 }
 
 function AddLiquidity() {
 
     const store = useContext(StoreContext);
 
-    return <TokensOperation
-        getBalances={() => {
-            return Promise.all([
-                API.getTonBalance(),
-                API.getTokenBalance(store.token.name)
-            ]);
-        }}
-        srcToken={"ton"}
-        destToken={store.token.name}
-        title={`Add TON/${store.token?.name} liquidity`}
-        emoji={"➕"}
-    />
+    return <div>
+        <TokensOperation
+            getBalances={() => {
+                return Promise.all([
+                    API.getTonBalance(),
+                    API.getTokenBalance(store.token.name)
+                ]);
+            }}
+            srcToken={"ton"}
+            destToken={store.token.name}
+            title={`Add TON/${store.token?.name} liquidity`}
+            emoji={"➕"}
+        />
+        <button onClick={generateAddLiquidityLink.bind(null, store.token?.name, store.token?.amount)}>
+            Add Liquidity
+        </button>
+    </div>
 }
 
 function RemoveLiquidity() {
 
     const store = useContext(StoreContext);
 
-    return <TokensOperation
-        getBalances={() => {
-            return Promise.all([
-                API.getTonBalance(),
-                API.getTokenBalance(store.token.name)
-            ]);
-        }}
-        srcToken={"ton"}
-        destToken={store.token.name}
-        title={`Remove TON/${store.token?.name} liquidity`}
-        emoji={"➖"}
-    />
+    return <div>
+        <TokensOperation
+            getBalances={() => {
+                return Promise.all([
+                    API.getTonBalance(),
+                    API.getTokenBalance(store.token.name)
+                ]);
+            }}
+            srcToken={"ton"}
+            destToken={store.token.name}
+            title={`Remove TON/${store.token?.name} liquidity`}
+            emoji={"➖"}
+        />
+        <button onClick={generateRemoveLiquidityLink.bind(null, store.token?.name, store.token?.amount)}>
+            Remove Liquidity
+        </button>
+    </div>
 }
 
 function SellToken() {
 
     const store = useContext(StoreContext);
 
-    return <TokensOperation
-        getBalances={() => {
-            return Promise.all([
-                API.getTokenBalance(store.token.name),
-                API.getTonBalance()
-            ]);
-        }}
-        srcToken={store.token.name}
-        destToken={"ton"}
-        title={`Swap ${store.token?.name} to Ton`}
-        emoji={"⬇️"}
-    />
+    return <div>
+        <TokensOperation
+            getBalances={() => {
+                return Promise.all([
+                    API.getTokenBalance(store.token.name),
+                    API.getTonBalance()
+                ]);
+            }}
+            srcToken={store.token.name}
+            destToken={"ton"}
+            title={`Swap ${store.token?.name} to Ton`}
+            emoji={"⬇️"}
+        />
+        <button onClick={generateSellLink.bind(null, store.token?.name)}>Sell ${store.token?.name}</button>
+    </div>
 }
 
 function TokensOperation(props: any) {
@@ -320,6 +345,9 @@ function ClaimRewards() {
                 Claim rewards {store.token?.name}
             </div>
             <TokenInput tokenInfo={store.srcToken} onChange={onChangeReward}/>
+            <button onClick={generateClaimRewards.bind(null, store.token?.name, store.token?.amount)}>
+                Claim rewards
+            </button>
         </div>
     );
 }
