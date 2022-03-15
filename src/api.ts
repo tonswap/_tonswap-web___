@@ -1,9 +1,5 @@
 const supportedTokens: any[] = require('./tokens.json');
 
-const sleep = (milliseconds: number) => {
-    return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 export const getTokenBalance = async (token: string) => {
     return new Promise((resolve) => {
         setTimeout(resolve.bind(null, (Math.random() * 50).toPrecision(4)), Math.random() * 1500);

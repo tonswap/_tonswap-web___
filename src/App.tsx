@@ -278,14 +278,17 @@ function TokensOperation(props: any) {
         store.setToken(token);
     });
 
+    const {srcToken, destToken, getBalances} = props.srcToken;
+    const {setSrcToken, setDestToken} = store;
+
     useEffect(() => {
-        if (!props.srcToken || !props.destToken) return;
+        if (!srcToken || !destToken) return;
         (async () => {
-            const [srcTokenBalance, destTokenBalance] = await props.getBalances();
-            store.setSrcToken({balance: srcTokenBalance, name: props.srcToken});
-            store.setDestToken({balance: destTokenBalance, name: props.destToken});
+            const [srcTokenBalance, destTokenBalance] = await getBalances();
+            setSrcToken({balance: srcTokenBalance, name: srcToken});
+            setDestToken({balance: destTokenBalance, name: destToken});
         })();
-    }, [props.srcToken, props.destToken])
+    }, [srcToken, destToken, getBalances, setSrcToken, setDestToken])
 
     const onChangeSrc = (amount: string) => {
         store.calculateTokens(parseFloat(amount || "0"), null);
@@ -325,7 +328,7 @@ function ClaimRewards() {
             ]);
             store.setSrcToken({balance: tokenBalance, name: token.name});
         })();
-    }, []);
+    });
 
     const onChangeReward = (amount: string) => {
         store.srcToken.amount = amount;
