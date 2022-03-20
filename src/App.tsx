@@ -112,16 +112,16 @@ function Navigation() {
                         <Link to={`/tonswap-web/buy/${store.token?.name}`}>Buy {store.token?.name}</Link>
                     </div>
                     <div>
-                        <a href={`/tonswap-web/sell/${store.token?.name}`}>Sell {store.token?.name}</a>
+                        <Link to={`/tonswap-web/sell/${store.token?.name}`}>Sell {store.token?.name}</Link>
                     </div>
                     <div>
-                        <a href={`/tonswap-web/addLiquidity/${store.token?.name}`}>Add liquidity</a>
+                        <Link to={`/tonswap-web/addLiquidity/${store.token?.name}`}>Add liquidity</Link>
                     </div>
                     <div>
-                        <a href={`/tonswap-web/removeLiquidity/${store.token?.name}`}>Remove liquidity</a>
+                        <Link to={`/tonswap-web/removeLiquidity/${store.token?.name}`}>Remove liquidity</Link>
                     </div>
                     <div>
-                        <a href={`/tonswap-web/claimRewards/${store.token?.name}`}>Claim rewards</a>
+                        <Link to={`/tonswap-web/claimRewards/${store.token?.name}`}>Claim rewards</Link>
                     </div>
                 </>
             }
