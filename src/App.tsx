@@ -20,6 +20,7 @@ function App() {
     const [token, setToken] = useState<any>({});
     const [srcToken, setSrcToken] = useState<any>({});
     const [destToken, setDestToken] = useState<any>({});
+    const [showConnect, setShowConnect] = useState(!localStorage.getItem('address'));
 
     const timeout = useRef(0);
 
@@ -61,17 +62,27 @@ function App() {
 
     return (
         <StoreContext.Provider
-            value={{token, setToken, srcToken, setSrcToken, destToken, setDestToken, calculateTokens}}>
+            value={{
+                token,
+                setToken,
+                srcToken,
+                setSrcToken,
+                destToken,
+                setDestToken,
+                calculateTokens,
+                showConnect,
+                setShowConnect
+            }}>
             <BrowserRouter>
                 <div className="App">
                     <Routes>
-                        <Route path="/" element={<Home/>}/>
-                        <Route path="/selectToken" element={<SelectToken/>}/>
-                        <Route path="/buy/:token" element={<BuyToken/>}/>
-                        <Route path="/sell/:token" element={<SellToken/>}/>
-                        <Route path="/addLiquidity/:token" element={<AddLiquidity/>}/>
-                        <Route path="/removeLiquidity/:token" element={<RemoveLiquidity/>}/>
-                        <Route path="/claimRewards/:token" element={<ClaimRewards/>}/>
+                        <Route path="/tonswap-web" element={<Home/>}/>
+                        <Route path="/tonswap-web/selectToken" element={<SelectToken/>}/>
+                        <Route path="/tonswap-web/buy/:token" element={<BuyToken/>}/>
+                        <Route path="/tonswap-web/sell/:token" element={<SellToken/>}/>
+                        <Route path="/tonswap-web/addLiquidity/:token" element={<AddLiquidity/>}/>
+                        <Route path="/tonswap-web/removeLiquidity/:token" element={<RemoveLiquidity/>}/>
+                        <Route path="/tonswap-web/claimRewards/:token" element={<ClaimRewards/>}/>
                     </Routes>
                     <Navigation/>
                 </div>
@@ -87,27 +98,30 @@ function Navigation() {
     return <>
         <div>
             <div>
-                <Link to={"/"}>Home</Link>
+                <Link to={"/tonswap-web/"}>Home</Link>
             </div>
-            <div>
-                <Link to={"/selectToken"}>Select a token</Link>
-            </div>
+            {
+                !store.showConnect &&
+                <div>
+                    <Link to={"/tonswap-web/selectToken"}>Select a token</Link>
+                </div>
+            }
             {
                 store.token.name && <>
                     <div>
-                        <Link to={`/buy/${store.token?.name}`}>Buy {store.token?.name}</Link>
+                        <Link to={`/tonswap-web/buy/${store.token?.name}`}>Buy {store.token?.name}</Link>
                     </div>
                     <div>
-                        <a href={`/sell/${store.token?.name}`}>Sell {store.token?.name}</a>
+                        <a href={`/tonswap-web/sell/${store.token?.name}`}>Sell {store.token?.name}</a>
                     </div>
                     <div>
-                        <a href={`/addLiquidity/${store.token?.name}`}>Add liquidity</a>
+                        <a href={`/tonswap-web/addLiquidity/${store.token?.name}`}>Add liquidity</a>
                     </div>
                     <div>
-                        <a href={`/removeLiquidity/${store.token?.name}`}>Remove liquidity</a>
+                        <a href={`/tonswap-web/removeLiquidity/${store.token?.name}`}>Remove liquidity</a>
                     </div>
                     <div>
-                        <a href={`/claimRewards/${store.token?.name}`}>Claim rewards</a>
+                        <a href={`/tonswap-web/claimRewards/${store.token?.name}`}>Claim rewards</a>
                     </div>
                 </>
             }
@@ -118,9 +132,8 @@ function Navigation() {
 function Home() {
 
     const [showPopup, setShowPopup] = useState(false);
-    const [showConnect, setShowConnect] = useState(!localStorage.getItem('address'));
     const store = useContext(StoreContext);
-
+    const {setShowConnect, showConnect} = store;
     const onClick = useCallback(() => {
         setShowPopup(!showPopup);
     }, [showPopup]);
@@ -134,14 +147,14 @@ function Home() {
         } else {
             alert('Bad wallet');
         }
-    }, []);
+    }, [setShowConnect]);
 
     const onScan = useCallback((result: any) => {
         alert(`Found address ${result}`);
         localStorage.setItem('address', result);
         setShowConnect(false);
         setShowPopup(false);
-    }, []);
+    }, [setShowConnect]);
 
     return (
         <>
@@ -161,7 +174,7 @@ function Home() {
                                 qrCodeSuccessCallback={onScan}/>
                         </div>
 
-                        <input style={{ width: '300px'}} onBlur={onBlur}/>
+                        <input style={{width: '300px'}} onBlur={onBlur}/>
                     </>
                 }
                 {!store.token && <a href={"/selectToken"}>Select a token</a>}
@@ -218,12 +231,12 @@ function BuyToken() {
 
     return <div>
         <TokensOperation
-        getBalances={getBalances}
-        srcToken={"ton"}
-        destToken={store.token.name}
-        title={`Swap Ton to ${store.token?.name}`}
-        emoji={"⬇️"}
-    />
+            getBalances={getBalances}
+            srcToken={"ton"}
+            destToken={store.token.name}
+            title={`Swap Ton to ${store.token?.name}`}
+            emoji={"⬇️"}
+        />
         <button onClick={generateBuyLink.bind(null, store.token?.name, store.token?.amount)}>
             Buy ${store.token?.name}
         </button>
