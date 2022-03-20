@@ -77,7 +77,7 @@ function hexToBytes(s) {
     s = s.toLowerCase();
     const length2 = s.length;
     if (length2 % 2 !== 0) {
-        throw "hex string must have length a multiple of 2";
+        throw new Error("hex string must have length a multiple of 2");
     }
     const length = length2 / 2;
     const result = new Uint8Array(length);
