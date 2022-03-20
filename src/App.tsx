@@ -9,6 +9,9 @@ import {
     generateRemoveLiquidityLink,
     generateSellLink
 } from "./api";
+import {Html5Qrcode, Html5QrcodeScanner} from "html5-qrcode"
+import Html5QrcodePlugin from "./Html5QrcodePlugin";
+
 const Address = require('./utils/Address');
 
 const StoreContext = React.createContext<any>({});
@@ -134,6 +137,13 @@ function Home() {
         }
     }, []);
 
+    const onScan = useCallback((result: any) => {
+        alert(`Found address ${result}`);
+        localStorage.setItem('address', result);
+        setShowConnect(false);
+        setShowPopup(false);
+    }, []);
+
     return (
         <>
             <header className="App-header">
@@ -142,7 +152,18 @@ function Home() {
                     showConnect && <button onClick={onClick}>Connect</button>
                 }
                 {
-                    showPopup && <><input onBlur={onBlur}/></>
+                    showPopup && <>
+                        <div style={{width: '500px', height: '500px'}}>
+                            <Html5QrcodePlugin
+                                // @ts-ignore
+                                fps={10}
+                                qrbox={450}
+                                disableFlip={false}
+                                qrCodeSuccessCallback={onScan}/>
+                        </div>
+
+                        <input style={{ width: '300px'}} onBlur={onBlur}/>
+                    </>
                 }
                 {!store.token && <a href={"/selectToken"}>Select a token</a>}
             </header>
@@ -165,7 +186,7 @@ function SelectToken() {
         <>
             <div style={{display: 'flex', width: '30%', flexWrap: 'wrap'}}>
                 {
-                    tokens.map((t: any, i: number) =>
+                    tokens.filter((t: any) => t.name !== "TON").map((t: any, i: number) =>
                         <div key={i}
                              onClick={onSelectToken.bind(null, t)}
                              style={{

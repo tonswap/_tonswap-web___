@@ -2,6 +2,7 @@
   "name": "tonswap-web",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://github.com/tonswap/tonswap-web",
   "dependencies": {
     "@testing-library/jest-dom": "^5.14.1",
     "@testing-library/react": "^12.0.0",
@@ -12,6 +13,7 @@
     "@types/react-dom": "^17.0.9",
     "bn.js": "^5.2.0",
     "ethjs-unit": "^0.1.6",
+    "html5-qrcode": "^2.2.0",
     "isomorphic-webcrypto": "^2.3.8",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
