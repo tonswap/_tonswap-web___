@@ -9,6 +9,7 @@ import {
     generateRemoveLiquidityLink,
     generateSellLink
 } from "./api";
+const Address = require('./utils/Address');
 
 const StoreContext = React.createContext<any>({});
 
@@ -123,9 +124,14 @@ function Home() {
     }, [showPopup]);
 
     const onBlur = useCallback((input) => {
-        localStorage.setItem('address', input.nativeEvent.target.value);
-        setShowConnect(!input.nativeEvent.target.value);
-        setShowPopup(!input.nativeEvent.target.value);
+        const address = input.nativeEvent.target.value;
+        if (Address.default.isValid(address)) {
+            localStorage.setItem('address', address);
+            setShowConnect(!input.nativeEvent.target.value);
+            setShowPopup(!input.nativeEvent.target.value);
+        } else {
+            alert('Bad wallet');
+        }
     }, []);
 
     return (
@@ -181,14 +187,18 @@ function BuyToken() {
 
     const store = useContext(StoreContext);
 
+    const {token} = store;
+
+    const getBalances = useCallback(() => {
+        return Promise.all([
+            API.getTonBalance(),
+            API.getTokenBalance(token.name)
+        ]);
+    }, [token]);
+
     return <div>
         <TokensOperation
-        getBalances={() => {
-            return Promise.all([
-                API.getTonBalance(),
-                API.getTokenBalance(store.token.name)
-            ]);
-        }}
+        getBalances={getBalances}
         srcToken={"ton"}
         destToken={store.token.name}
         title={`Swap Ton to ${store.token?.name}`}
@@ -250,14 +260,18 @@ function SellToken() {
 
     const store = useContext(StoreContext);
 
+    const {token} = store;
+
+    const getBalances = useCallback(() => {
+        return Promise.all([
+            API.getTokenBalance(token.name),
+            API.getTonBalance()
+        ]);
+    }, [token]);
+
     return <div>
         <TokensOperation
-            getBalances={() => {
-                return Promise.all([
-                    API.getTokenBalance(store.token.name),
-                    API.getTonBalance()
-                ]);
-            }}
+            getBalances={getBalances}
             srcToken={store.token.name}
             destToken={"ton"}
             title={`Swap ${store.token?.name} to Ton`}
@@ -278,8 +292,8 @@ function TokensOperation(props: any) {
         store.setToken(token);
     });
 
-    const {srcToken, destToken, getBalances} = props.srcToken;
-    const {setSrcToken, setDestToken} = store;
+    const {srcToken, destToken, getBalances} = props;
+    const {setDestToken, setSrcToken} = store;
 
     useEffect(() => {
         if (!srcToken || !destToken) return;
@@ -288,7 +302,7 @@ function TokensOperation(props: any) {
             setSrcToken({balance: srcTokenBalance, name: srcToken});
             setDestToken({balance: destTokenBalance, name: destToken});
         })();
-    }, [srcToken, destToken, getBalances, setSrcToken, setDestToken])
+    }, [srcToken, destToken, getBalances, setDestToken, setSrcToken]);
 
     const onChangeSrc = (amount: string) => {
         store.calculateTokens(parseFloat(amount || "0"), null);
