@@ -11,7 +11,7 @@ import {
 } from "./api";
 import Html5QrcodePlugin from "./Html5QrcodePlugin";
 
-const Address = require('./utils/Address');
+const TonWeb = require('tonweb');
 
 const StoreContext = React.createContext<any>({});
 
@@ -127,7 +127,7 @@ function Home() {
 
     const onBlur = useCallback((input) => {
         const address = input.nativeEvent.target.value;
-        if (Address.default.isValid(address)) {
+        if (TonWeb.utils.Address.isValid(address)) {
             localStorage.setItem('address', address);
             setShowConnect(!input.nativeEvent.target.value);
             setShowPopup(!input.nativeEvent.target.value);
