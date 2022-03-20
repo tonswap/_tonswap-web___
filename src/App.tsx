@@ -9,7 +9,6 @@ import {
     generateRemoveLiquidityLink,
     generateSellLink
 } from "./api";
-import {Html5Qrcode, Html5QrcodeScanner} from "html5-qrcode"
 import Html5QrcodePlugin from "./Html5QrcodePlugin";
 
 const Address = require('./utils/Address');

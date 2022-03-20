@@ -12,13 +12,13 @@ const test_flag = 0x80;
 function parseFriendlyAddress(addressString) {
     const data = stringToBytes(base64toString(addressString));
     if (data.length !== 36) { // 1byte tag + 1byte workchain + 32 bytes hash + 2 byte crc
-        throw "Unknown address type: byte length is not equal to 36";
+        throw new Error("Unknown address type: byte length is not equal to 36");
     }
     const addr = data.slice(0, 34);
     const crc = data.slice(34, 36);
     const calcedCrc = crc16(addr);
     if (!(calcedCrc[0] === crc[0] && calcedCrc[1] === crc[1])) {
-        throw "Wrong crc16 hashsum";
+        throw new Error("Wrong crc16 hashsum");
     }
     let tag = addr[0];
     let isTestOnly = false;
@@ -28,7 +28,7 @@ function parseFriendlyAddress(addressString) {
         tag = tag ^ test_flag;
     }
     if ((tag !== bounceable_tag) && (tag !== non_bounceable_tag))
-        throw "Unknown address tag";
+        throw new Error("Unknown address tag");
 
     isBounceable = tag === bounceable_tag;
 
@@ -62,7 +62,7 @@ class Address {
      */
     constructor(anyForm) {
         if (anyForm == null) {
-            throw "Invalid address";
+            throw new Error("Invalid address");
         }
 
         if (anyForm instanceof Address) {
@@ -75,9 +75,9 @@ class Address {
             return;
         }
 
-        if (anyForm.search(/\-/) > 0 || anyForm.search(/_/) > 0) {
+        if (anyForm.search(/-/) > 0 || anyForm.search(/_/) > 0) {
             this.isUrlSafe = true;
-            anyForm = anyForm.replace(/\-/g, '+').replace(/_/g, '\/');
+            anyForm = anyForm.replace(/-/g, '+').replace(/_/g, '/');
         } else {
             this.isUrlSafe = false;
         }
