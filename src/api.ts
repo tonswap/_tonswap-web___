@@ -1,43 +1,114 @@
+import {Address, Cell, TonClient} from "ton";
+import TonWeb from "tonweb";
+import {base64StrToCell, cellToString} from "./utils";
+
+const BN = require("bn.js");
+
 const supportedTokens: any[] = require('./tokens.json');
 
+const client = new TonClient({
+    endpoint: 'https://scalable-api.tonwhales.com/jsonRPC'
+});
+
+
+const tonweb = new TonWeb(new TonWeb.HttpProvider('https://scalable-api.tonwhales.com/jsonRPC'));
+
 export const getTokenBalance = async (token: string) => {
-    return new Promise((resolve) => {
-        setTimeout(resolve.bind(null, (Math.random() * 50).toPrecision(4)), Math.random() * 1500);
-    });
+    const tokenObjects: any = (supportedTokens.find((t: any) => t.name === token));
+    const owner = Address.parse(localStorage.getItem('address') as string);
+    let wc = owner.workChain;
+    let address = new BN(owner.hash);
+    const res = await tonweb.call(tokenObjects.address, 'ibalance_of', [
+        ['num', wc.toString(10)],
+        ['num', address.toString(10)]
+    ]);
+
+    return parseFloat((new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9).toFixed(2));
 }
 
 export const getTonBalance = async () => {
-    return new Promise((resolve) => {
-        setTimeout(resolve.bind(null, (Math.random() * 200).toPrecision(4)), Math.random() * 1500);
-    });
+    const balance = await tonweb.getBalance(localStorage.getItem('address') as string);
+    return parseFloat((new BN(balance).toNumber() / 1e9).toFixed(2));
 }
 
 export const getAmountsOut = async (srcToken: string, destToken: string, srcAmount: number | null, destAmount: number | null) => {
-    // Right now only support ton + token
-    const token = srcToken === "ton" ? destToken : srcToken;
-    const [tonDollarValue, tokenDollarValue] = await getTokenDollarValue(["ton", token], 1);
-    const ratio = tokenDollarValue / tonDollarValue;
-    if (srcToken === "ton") {
-        if (srcAmount != null) {
-            return parseFloat((srcAmount * ratio).toPrecision(4));
-        } else if (destAmount != null) {
-            return parseFloat((destAmount / ratio).toPrecision(4));
-        }
-    } else {
-        if (srcAmount != null) {
-            return parseFloat((srcAmount / ratio).toPrecision(4));
-        } else if (destAmount != null) {
-            return parseFloat((destAmount * ratio).toPrecision(4));
-        }
+
+    const amountIn = (srcAmount || destAmount || 0) * 1e9;
+    const isTokenSource = srcToken !== "ton"; // && srcAmount != null || destToken === "ton" && destAmount != null;
+    // TODO: AMM Address from tokens.json
+    const res = await tonweb.call("EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH", 'get_amount_out_lp', [
+        ['num', amountIn.toString(10)],
+        ['num', isTokenSource ? '1' : '0'],
+    ]);
+
+    return (new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9);
+}
+
+async function getData() {
+    // TODO: AMM Address from tokens.json
+    const res = await client.callGetMethod(Address.parse('EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH'), 'get_token_data', []);
+    const cellName = base64StrToCell(res.stack[0][1].bytes)
+    const name = cellToString(cellName[0]);
+    const cSymbol = base64StrToCell(res.stack[1][1].bytes)
+    const symbol = cellToString(cSymbol[0]);
+    const decimals = res.stack[2][1];
+    const totalSupply = res.stack[3][1];
+    const tokenReserves = res.stack[4][1];
+    const tonReserves = res.stack[5][1];
+    const initialized = res.stack[7][1];
+
+    return {
+        name,
+        symbol,
+        decimals,
+        totalSupply,
+        tokenReserves,
+        tonReserves,
+        initialized
     }
 }
 
-export const getTokenDollarValue = async (tokens: string[], amount: number):Promise<number[]> => {
-    tokens = tokens.map(t => t.toLowerCase());
-    const tokenObjects = (supportedTokens.filter((t: any) => tokens.indexOf(t.name.toLowerCase()) !== -1));
-    const coinsResponse = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${tokenObjects.map(t => t.coinGeckoId).join(",")}&vs_currencies=usd&include_market_cap=false&include_24hr_vol=false&include_24hr_change=false&include_last_updated_at=false`);
+export const getLiquidityAmount = async (srcToken: string, destToken: string, srcAmount: number | null, destAmount: number | null): Promise<number> => {
+    const lpTokenData = await getData();
+
+    const tokenReserves = new BN(BigInt(lpTokenData.tokenReserves));
+    const tonReserves = new BN(BigInt(lpTokenData.tonReserves));
+
+    const ratio = tonReserves.mul(new BN(1e9)).div(tokenReserves).toString() / 1e9;
+
+    if (srcToken === "ton") {
+        if (srcAmount != null) {
+            return srcAmount / ratio;
+        } else if (destAmount != null) {
+            return destAmount * ratio;
+        }
+    } else {
+        if (srcAmount != null) {
+            return srcAmount * ratio;
+        } else if (destAmount != null) {
+            return destAmount / ratio;
+        }
+    }
+    return 0;
+}
+export const getTokenDollarValue = async (token: string, amount: number): Promise<number> => {
+
+    let ratio = 1;
+
+    if (token !== "ton") {
+        const lpTokenData = await getData();
+
+        const tokenReserves = new BN(BigInt(lpTokenData.tokenReserves));
+        const tonReserves = new BN(BigInt(lpTokenData.tonReserves));
+
+        ratio = tonReserves.mul(new BN(1e9)).div(tokenReserves).toString() / 1e9;
+    }
+
+    const coinsResponse = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd&include_market_cap=false&include_24hr_vol=false&include_24hr_change=false&include_last_updated_at=false`);
     const result = await coinsResponse.json();
-    return tokenObjects.map(t => parseFloat((parseFloat(result[t.coinGeckoId].usd) * amount).toPrecision(4)));
+    const tonPriceWithAmount = parseFloat((parseFloat(result['the-open-network'].usd) * amount).toPrecision(4));
+
+    return tonPriceWithAmount * ratio;
 }
 
 export const getRewards = async (token: string) => {

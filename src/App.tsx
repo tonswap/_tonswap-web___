@@ -24,21 +24,21 @@ function App() {
 
     const timeout = useRef(0);
 
-    const calculateTokens = async (srcAmount: number | null, destAmount: number | null) => {
+    const calculateTokens = async (srcAmount: number | null | string, destAmount: number | null | string, getAmountsFunc: any) => {
         if (srcAmount != null) {
             srcToken.amount = srcAmount;
             setSrcToken({...srcToken});
             clearTimeout(timeout.current);
             // @ts-ignore
             timeout.current = setTimeout(async () => {
-                API.getTokenDollarValue([srcToken.name], srcAmount).then((dollarValue: number[]) => {
-                    srcToken.dollarValue = dollarValue[0];
+                API.getTokenDollarValue(srcToken.name, parseFloat(srcAmount.toString())).then((dollarValue: number) => {
+                    srcToken.dollarValue = dollarValue;
                     setSrcToken({...srcToken});
                 });
-                const amount = await API.getAmountsOut(srcToken.name, destToken.name, srcAmount, destAmount);
+                const amount = await getAmountsFunc(srcToken.name, destToken.name, parseFloat(srcAmount.toString()), destAmount != null ? parseFloat(destAmount.toString()) : null);
                 destToken.amount = amount;
                 setDestToken({...destToken});
-                destToken.dollarValue = (await API.getTokenDollarValue([destToken.name], amount!!))[0];
+                destToken.dollarValue = (await API.getTokenDollarValue(destToken.name, amount!!));
                 setDestToken({...destToken});
             }, 500);
         } else if (destAmount != null) {
@@ -47,14 +47,14 @@ function App() {
             clearTimeout(timeout.current);
             // @ts-ignore
             timeout.current = setTimeout(async () => {
-                API.getTokenDollarValue([destToken.name], destAmount).then((dollarValue: number[]) => {
-                    destToken.dollarValue = dollarValue[0];
+                API.getTokenDollarValue(destToken.name, parseFloat(destAmount.toString())).then((dollarValue: number) => {
+                    destToken.dollarValue = dollarValue;
                     setDestToken({...destToken});
                 });
-                const amount = await API.getAmountsOut(srcToken.name, destToken.name, srcAmount, destAmount);
+                const amount = await getAmountsFunc(srcToken.name, destToken.name, srcAmount, parseFloat(destAmount.toString()));
                 srcToken.amount = amount;
                 setSrcToken({...srcToken});
-                srcToken.dollarValue = (await API.getTokenDollarValue([srcToken.name], amount!!))[0];
+                srcToken.dollarValue = (await API.getTokenDollarValue(srcToken.name, amount!!));
                 setSrcToken({...srcToken});
             }, 500);
         }
@@ -232,6 +232,7 @@ function BuyToken() {
     return <div>
         <TokensOperation
             getBalances={getBalances}
+            getAmountFunc={API.getAmountsOut}
             srcToken={"ton"}
             destToken={store.token.name}
             title={`Swap Ton to ${store.token?.name}`}
@@ -247,14 +248,19 @@ function AddLiquidity() {
 
     const store = useContext(StoreContext);
 
+    const {token} = store;
+
+    const getBalances = useCallback(() => {
+        return Promise.all([
+            API.getTonBalance(),
+            API.getTokenBalance(token.name)
+        ]);
+    }, [token]);
+
     return <div>
         <TokensOperation
-            getBalances={() => {
-                return Promise.all([
-                    API.getTonBalance(),
-                    API.getTokenBalance(store.token.name)
-                ]);
-            }}
+            getBalances={getBalances}
+            getAmountFunc={API.getLiquidityAmount}
             srcToken={"ton"}
             destToken={store.token.name}
             title={`Add TON/${store.token?.name} liquidity`}
@@ -270,14 +276,19 @@ function RemoveLiquidity() {
 
     const store = useContext(StoreContext);
 
+    const {token} = store;
+
+    const getBalances = useCallback(() => {
+        return Promise.all([
+            API.getTonBalance(),
+            API.getTokenBalance(token.name)
+        ]);
+    }, [token]);
+
     return <div>
         <TokensOperation
-            getBalances={() => {
-                return Promise.all([
-                    API.getTonBalance(),
-                    API.getTokenBalance(store.token.name)
-                ]);
-            }}
+            getBalances={getBalances}
+            getAmountFunc={API.getLiquidityAmount}
             srcToken={"ton"}
             destToken={store.token.name}
             title={`Remove TON/${store.token?.name} liquidity`}
@@ -305,6 +316,7 @@ function SellToken() {
     return <div>
         <TokensOperation
             getBalances={getBalances}
+            getAmountFunc={API.getAmountsOut}
             srcToken={store.token.name}
             destToken={"ton"}
             title={`Swap ${store.token?.name} to Ton`}
@@ -338,11 +350,11 @@ function TokensOperation(props: any) {
     }, [srcToken, destToken, getBalances, setDestToken, setSrcToken]);
 
     const onChangeSrc = (amount: string) => {
-        store.calculateTokens(parseFloat(amount || "0"), null);
+        store.calculateTokens((amount || "0"), null, props.getAmountFunc);
     };
 
     const onChangeDest = (amount: string) => {
-        store.calculateTokens(null, parseFloat(amount || "0"));
+        store.calculateTokens(null, (amount || "0"), props.getAmountFunc);
     };
 
     return (
@@ -382,8 +394,8 @@ function ClaimRewards() {
         store.setSrcToken({...store.srcToken});
 
         if (store.srcToken.name) {
-            API.getTokenDollarValue([store.srcToken.name], parseFloat(amount)).then((dollarValue: number[]) => {
-                store.srcToken.dollarValue = dollarValue[0];
+            API.getTokenDollarValue(store.srcToken.name, parseFloat(amount)).then((dollarValue: number) => {
+                store.srcToken.dollarValue = dollarValue;
                 store.setSrcToken({...store.srcToken});
             });
         }
@@ -416,8 +428,8 @@ function TokenInput(props: any) {
     return (
         <div>
             <div>
-                <input value={props.tokenInfo?.amount || ''} onChange={onChange}/>
-                <span>{props.tokenInfo?.balance || '?'}</span>
+                <input value={props.tokenInfo?.amount ?? ''} onChange={onChange}/>
+                <span>{props.tokenInfo?.balance ?? '?'}</span>
             </div>
             <div style={{padding: '10px', display: 'flex'}}>
                 <span style={{flex: 1, textAlign: 'left'}}>~${props.tokenInfo?.dollarValue || 0}</span>
