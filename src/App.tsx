@@ -238,7 +238,7 @@ function BuyToken() {
             title={`Swap Ton to ${store.token?.name}`}
             emoji={"⬇️"}
         />
-        <button onClick={generateBuyLink.bind(null, store.token?.name, store.token?.amount)}>
+        <button onClick={generateBuyLink.bind(null, store.token?.name, store.srcToken?.amount, store.destToken?.amount)}>
             Buy ${store.token?.name}
         </button>
     </div>
@@ -266,7 +266,7 @@ function AddLiquidity() {
             title={`Add TON/${store.token?.name} liquidity`}
             emoji={"➕"}
         />
-        <button onClick={generateAddLiquidityLink.bind(null, store.token?.name, store.token?.amount)}>
+        <button onClick={generateAddLiquidityLink.bind(null, store.destToken?.name, store.srcToken?.amount, store.destToken?.amount)}>
             Add Liquidity
         </button>
     </div>
@@ -377,19 +377,19 @@ function ClaimRewards() {
 
     let params = useParams();
 
+    const {setSrcToken, setToken} = store;
+
     useEffect(() => {
         (async () => {
             const tokens: [] = require('./tokens.json');
             const token: any = tokens.find((t: any) => t.name === params.token);
-            store.setToken(token);
-            const [tokenBalance] = await Promise.all([
-                API.getRewards(token.name)
-            ]);
-            store.setSrcToken({balance: tokenBalance, name: token.name});
+            setToken(token);
+            const tokenBalance = await API.getRewards(token.name);
+            setSrcToken({balance: tokenBalance, name: token.name});
         })();
-    });
+    }, [setSrcToken, setToken]);
 
-    const onChangeReward = (amount: string) => {
+    const onChangeReward = useCallback((amount: string) => {
         store.srcToken.amount = amount;
         store.setSrcToken({...store.srcToken});
 
@@ -399,7 +399,7 @@ function ClaimRewards() {
                 store.setSrcToken({...store.srcToken});
             });
         }
-    };
+    }, []);
 
     return (
         <div style={{padding: '10px'}}>
