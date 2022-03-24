@@ -7,7 +7,7 @@ import {
     generateBuyLink,
     generateClaimRewards,
     generateRemoveLiquidityLink,
-    generateSellLink
+    generateSellLink, getTokensOfLPBalances
 } from "./api";
 import Html5QrcodePlugin from "./Html5QrcodePlugin";
 
@@ -279,10 +279,7 @@ function RemoveLiquidity() {
     const {token} = store;
 
     const getBalances = useCallback(() => {
-        return Promise.all([
-            API.getTonBalance(),
-            API.getTokenBalance(token.name)
-        ]);
+        return getTokensOfLPBalances();
     }, [token]);
 
     return <div>
@@ -294,7 +291,7 @@ function RemoveLiquidity() {
             title={`Remove TON/${store.token?.name} liquidity`}
             emoji={"➖"}
         />
-        <button onClick={generateRemoveLiquidityLink.bind(null, store.token?.name, store.token?.amount)}>
+        <button onClick={generateRemoveLiquidityLink.bind(null, store.destToken?.name, store.srcToken?.amount)}>
             Remove Liquidity
         </button>
     </div>
@@ -322,7 +319,7 @@ function SellToken() {
             title={`Swap ${store.token?.name} to Ton`}
             emoji={"⬇️"}
         />
-        <button onClick={generateSellLink.bind(null, store.token?.name)}>Sell ${store.token?.name}</button>
+        <button onClick={generateSellLink.bind(null, store.token?.name, store.srcToken.amount)}>Sell ${store.token?.name}</button>
     </div>
 }
 

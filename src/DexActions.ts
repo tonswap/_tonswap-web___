@@ -107,10 +107,9 @@ export class DexActions {
         const to264 = addressToSlice264(to);
         messageBody.bits.writeUint(to264, 264);
         messageBody.bits.writeCoins(tokenAmount); // sent amount
-        messageBody.bits.writeUint(ADD_LIQUIDITY_SUB_OP, 8); // sub-op
+        messageBody.bits.writeUint(SWAP_OUT_SUB_OP, 8); // sub-op
         messageBody.bits.writeUint(slippage, 64) // slippage
         return messageBody;
-
     }
 
     static async claimRewards() {

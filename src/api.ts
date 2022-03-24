@@ -20,7 +20,22 @@ export const getTokenBalance = async (token: string) => {
 
 export const getLPTokenBalance = async () => {
     // TODO: AMM Address from tokens.json
-    return _getTokenBalance("EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH");
+    return _getTokenBalance("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5");
+}
+
+export const getTokensOfLPBalances = async () => {
+    const [data, lpBalance] = await Promise.all([
+        getData(),
+        getLPTokenBalance()
+    ]);
+
+    const totalLPs = parseFloat((new BN(BigInt(data.totalSupply).toString()).toNumber() / 1e9).toFixed(2));
+    const ratio = lpBalance / totalLPs;
+
+    return [
+        parseFloat((new BN(BigInt(data.tonReserves).toString()).toNumber() / 1e9 * ratio).toFixed(2)),
+        parseFloat((new BN(BigInt(data.tokenReserves).toString()).toNumber() / 1e9 * ratio).toFixed(2))
+    ];
 }
 
 // TODO: Remove later
@@ -36,6 +51,8 @@ const _getTokenBalance = async (tokenAddress: string) => {
         ['num', address.toString(10)]
     ]);
 
+    console.log(new BN(BigInt(res.stack[0][1]).toString()).toString());
+
     return parseFloat((new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9).toFixed(2));
 }
 
@@ -48,20 +65,41 @@ export const getTonBalance = async () => {
 
 export const getAmountsOut = async (srcToken: string, destToken: string, srcAmount: number | null, destAmount: number | null) => {
 
-    const amountIn = (srcAmount || destAmount || 0) * 1e9;
-    const isTokenSource = srcToken !== "ton"; // && srcAmount != null || destToken === "ton" && destAmount != null;
-    // TODO: AMM Address from tokens.json
-    const res = await tonweb.call("EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH", 'get_amount_out_lp', [
-        ['num', amountIn.toString(10)],
-        ['num', isTokenSource ? '1' : '0'],
-    ]);
+    let res;
 
-    return (new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9);
+    if (srcAmount != null) {
+        const amountIn = srcAmount * 1e9;
+        const isTokenSource = srcToken !== "ton"; // && srcAmount != null || destToken === "ton" && destAmount != null;
+        // TODO: AMM Address from tokens.json
+        res = await tonweb.call("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5", 'get_amount_out_lp', [
+            ['num', amountIn.toString(10)],
+            ['num', isTokenSource ? '1' : '0'],
+        ]);
+    } else if (destAmount != null) {
+        const amountIn = (destAmount || 0) * 1e9;
+        const isTokenSource = srcToken !== "ton"; // && srcAmount != null || destToken === "ton" && destAmount != null;
+        // TODO: AMM Address from tokens.json
+        res = await tonweb.call("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5", 'get_amount_in_lp', [
+            ['num', amountIn.toString(10)],
+            ['num', isTokenSource ? '1' : '0'],
+        ]);
+    }
+
+    if (res.stack[0][1].indexOf("-") === 0) {
+        const data = await getData();
+        if (srcToken === "ton") {
+            return parseFloat((new BN(BigInt(data.tonReserves).toString()).toNumber() / 1e9).toFixed(2));
+        } else {
+            return parseFloat((new BN(BigInt(data.tokenReserves).toString()).toNumber() / 1e9).toFixed(2));
+        }
+    } else {
+        return (new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9);
+    }
 }
 
 async function getData() {
     // TODO: AMM Address from tokens.json
-    const res = await client.callGetMethod(Address.parse('EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH'), 'get_token_data', []);
+    const res = await client.callGetMethod(Address.parse('EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5'), 'get_token_data', []);
     const cellName = base64StrToCell(res.stack[0][1].bytes)
     const name = cellToString(cellName[0]);
     const cSymbol = base64StrToCell(res.stack[1][1].bytes)
@@ -131,18 +169,32 @@ export const getRewards = async (token: string) => {
     let wc = owner.workChain;
     let address = new BN(owner.hash);
     // TODO: AMM Address from tokens.json
-    const res = await tonweb.call("EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH",'get_rewards_of', [
+    const res = await tonweb.call("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5",'get_rewards_of', [
         [ 'num', wc.toString(10) ],
         [ 'num', address.toString(10)]
     ]);
     console.log(res.stack[0][1]);
     console.log(new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9);
 
+    // TODO: Change all toFixed and do it only in UI
     return parseFloat((new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9).toFixed(8));
 }
 
-export const generateSellLink = (token: string) => {
-    return "https://google.com"
+export const generateSellLink = async (token: string, tokenAmount: number) => {
+    const tokenObjects: any = (supportedTokens.find((t: any) => t.name === token));
+
+    // TODO: AMM Address from tokens.json
+    let transfer = await DexActions.transferAndSwapOut(
+        Address.parse("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5"),
+        new BN(tokenAmount * 1e9),
+        new BN(2)
+    );
+    const transferStr = transfer.toString();
+    const bocT = stripBoc(transferStr);
+    const deeplinkTransfer = `ton://transfer/${tokenObjects.address}?amount=${0.2 * 1e9}&text=${bocT}`;
+
+    console.log(deeplinkTransfer);
+    return window.open(deeplinkTransfer);
 }
 
 export const generateBuyLink = async (token: string, tonAmount: number, tokenAmount: number) => {
@@ -152,7 +204,7 @@ export const generateBuyLink = async (token: string, tonAmount: number, tokenAmo
     const transferStr = transfer.toString();
     const bocT = stripBoc(transferStr);
     // TODO: AMM Address from tokens.json
-    const deeplinkTransfer = `ton://transfer/EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH?amount=${tonAmount * 1e9}&text=${bocT}`;
+    const deeplinkTransfer = `ton://transfer/EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5?amount=${tonAmount * 1e9}&text=${bocT}`;
 
     console.log(deeplinkTransfer);
     return window.open(deeplinkTransfer);
@@ -164,7 +216,7 @@ export const generateAddLiquidityLink = async (token: string, tonAmount: number 
 
     // TODO: AMM Address from tokens.json
     const transferAndLiq = await DexActions.transferAndAddLiquidity(
-        Address.parse("EQCovK7cCG01JX6hPDWRk2388ZS_uFZ9h23XZYeeM3mPX4fH"), new BN(tokenAmount * 1e9), 10
+        Address.parse("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5"), new BN(tokenAmount * 1e9), 10
     )
     const boc = stripBoc(transferAndLiq.toString());
     const deeplink = `ton://transfer/${tokenObjects.address}?amount=${(parseFloat(tonAmount + "") + 0.2) * 1e9}&text=${boc}`;
@@ -173,10 +225,33 @@ export const generateAddLiquidityLink = async (token: string, tonAmount: number 
     return window.open(deeplink);
 }
 
-export const generateRemoveLiquidityLink = (token: string, amount: number) => {
-    return "https://google.com"
+export const generateRemoveLiquidityLink = async (token: string, tonAmount: number | string) => {
+
+    const data = await getData();
+    const ratio = parseFloat((parseFloat(tonAmount.toString()) / (new BN(BigInt(data.tonReserves).toString()).toNumber() / 1e9)).toFixed(2));
+    const totalLPs = parseFloat((new BN(BigInt(data.totalSupply).toString()).toNumber() / 1e9).toFixed(2));
+
+    const transferAndLiq = await DexActions.removeLiquidity(
+        new BN(totalLPs * ratio * 1e9)
+    )
+
+    const boc = stripBoc(transferAndLiq.toString());
+    // TODO: AMM Address from tokens.json
+    const deeplink = `ton://transfer/EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5?amount=${0.2 * 1e9}&text=${boc}`;
+
+    console.log(deeplink);
+    return window.open(deeplink);
+
 }
 
-export const generateClaimRewards = (token: string, amount: number) => {
-    return "https://google.com"
+export const generateClaimRewards = async () => {
+
+    const claimRewards = await DexActions.claimRewards();
+    const boc = stripBoc(claimRewards.toString());
+    // TODO: AMM Address from tokens.json
+    const deeplink = `ton://transfer/EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5?amount=${0.2 * 1e9}&text=${boc}`;
+
+    console.log(deeplink);
+    return window.open(deeplink);
+
 }
