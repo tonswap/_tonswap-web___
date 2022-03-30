@@ -1,4 +1,4 @@
-import {Address, Cell, TonClient} from "ton";
+import {Address, TonClient} from "ton";
 import TonWeb from "tonweb";
 import {base64StrToCell, cellToString, stripBoc} from "./utils";
 import {DexActions} from "./DexActions";
@@ -13,34 +13,42 @@ const client = new TonClient({
 
 const tonweb = new TonWeb(new TonWeb.HttpProvider('https://scalable-api.tonwhales.com/jsonRPC'));
 
+const getToken = (token: string) => {
+    return (supportedTokens.find((t: any) => t.name === token));
+}
+
 export const getTokenBalance = async (token: string) => {
-    const tokenObjects: any = (supportedTokens.find((t: any) => t.name === token));
+    const tokenObjects: any = getToken(token);
     return _getTokenBalance(tokenObjects.address);
 }
 
-export const getLPTokenBalance = async () => {
-    // TODO: AMM Address from tokens.json
-    return _getTokenBalance("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5");
+export const getLPTokenBalance = async (token: string) => {
+    const tokenObjects: any = getToken(token);
+    return _getTokenBalance(tokenObjects.amm);
 }
 
-export const getTokensOfLPBalances = async () => {
+export const getTokensOfLPBalances = async (token: string) => {
     const [data, lpBalance] = await Promise.all([
-        getData(),
-        getLPTokenBalance()
+        getData(token),
+        getLPTokenBalance(token)
     ]);
 
-    const totalLPs = parseFloat((new BN(BigInt(data.totalSupply).toString()).toNumber() / 1e9).toFixed(2));
+    const totalLPs = parseNumber(new BN(eval(data.totalSupply)));
     const ratio = lpBalance / totalLPs;
 
     return [
-        parseFloat((new BN(BigInt(data.tonReserves).toString()).toNumber() / 1e9 * ratio).toFixed(2)),
-        parseFloat((new BN(BigInt(data.tokenReserves).toString()).toNumber() / 1e9 * ratio).toFixed(2))
+        parseNumber(new BN(eval(data.tonReserves)).mul(new BN(ratio * 1e9)).div(new BN(1e9))),
+        parseNumber(new BN(eval(data.tokenReserves)).mul(new BN(ratio * 1e9)).div(new BN(1e9)))
     ];
 }
 
 // TODO: Remove later
 (window as any).getLPTokenBalance = getLPTokenBalance;
 (window as any).getData = getData;
+
+const parseNumber = (num: any, units: number = 1e9, decimalPoints: number = 4) => {
+    return parseFloat(parseFloat(num.div(new BN(units)).toString() + '.' + num.mod(new BN(units)).toString()).toFixed(4));
+}
 
 const _getTokenBalance = async (tokenAddress: string) => {
     const owner = Address.parse(localStorage.getItem('address') as string);
@@ -51,55 +59,50 @@ const _getTokenBalance = async (tokenAddress: string) => {
         ['num', address.toString(10)]
     ]);
 
-    console.log(new BN(BigInt(res.stack[0][1]).toString()).toString());
-
-    return parseFloat((new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9).toFixed(2));
+    return parseNumber(new BN(eval(res.stack[0][1])));
 }
 
 export const getTonBalance = async () => {
     const balance = await tonweb.getBalance(localStorage.getItem('address') as string);
-    return parseFloat((new BN(balance).toNumber() / 1e9).toFixed(2));
+    return parseNumber(new BN(balance));
 }
-
-// TODO: Get amount in
 
 export const getAmountsOut = async (srcToken: string, destToken: string, srcAmount: number | null, destAmount: number | null) => {
 
     let res;
+    const tokenObjects: any = getToken(srcToken !== "ton" ? srcToken : destToken);
 
     if (srcAmount != null) {
         const amountIn = srcAmount * 1e9;
         const isTokenSource = srcToken !== "ton"; // && srcAmount != null || destToken === "ton" && destAmount != null;
-        // TODO: AMM Address from tokens.json
-        res = await tonweb.call("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5", 'get_amount_out_lp', [
+        res = await tonweb.call(tokenObjects.amm, 'get_amount_out_lp', [
             ['num', amountIn.toString(10)],
             ['num', isTokenSource ? '1' : '0'],
         ]);
     } else if (destAmount != null) {
         const amountIn = (destAmount || 0) * 1e9;
         const isTokenSource = srcToken !== "ton"; // && srcAmount != null || destToken === "ton" && destAmount != null;
-        // TODO: AMM Address from tokens.json
-        res = await tonweb.call("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5", 'get_amount_in_lp', [
+        res = await tonweb.call(tokenObjects.amm, 'get_amount_in_lp', [
             ['num', amountIn.toString(10)],
             ['num', isTokenSource ? '1' : '0'],
         ]);
     }
 
     if (res.stack[0][1].indexOf("-") === 0) {
-        const data = await getData();
+        const data = await getData(tokenObjects.name);
         if (srcToken === "ton") {
-            return parseFloat((new BN(BigInt(data.tonReserves).toString()).toNumber() / 1e9).toFixed(2));
+            return parseNumber(new BN(eval(data.tonReserves)));
         } else {
-            return parseFloat((new BN(BigInt(data.tokenReserves).toString()).toNumber() / 1e9).toFixed(2));
+            return parseNumber(new BN(eval(data.tokenReserves)));
         }
     } else {
-        return (new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9);
+        return parseNumber(new BN(eval(res.stack[0][1])));
     }
 }
 
-async function getData() {
-    // TODO: AMM Address from tokens.json
-    const res = await client.callGetMethod(Address.parse('EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5'), 'get_token_data', []);
+async function getData(token: string) {
+    const tokenObjects: any = getToken(token);
+    const res = await client.callGetMethod(Address.parse(tokenObjects.amm), 'get_token_data', []);
     const cellName = base64StrToCell(res.stack[0][1].bytes)
     const name = cellToString(cellName[0]);
     const cSymbol = base64StrToCell(res.stack[1][1].bytes)
@@ -122,7 +125,8 @@ async function getData() {
 }
 
 export const getLiquidityAmount = async (srcToken: string, destToken: string, srcAmount: number | null, destAmount: number | null): Promise<number> => {
-    const lpTokenData = await getData();
+    const tokenObjects: any = getToken(srcToken !== "ton" ? srcToken : destToken);
+    const lpTokenData = await getData(tokenObjects.name);
 
     const tokenReserves = new BN(BigInt(lpTokenData.tokenReserves));
     const tonReserves = new BN(BigInt(lpTokenData.tonReserves));
@@ -144,11 +148,12 @@ export const getLiquidityAmount = async (srcToken: string, destToken: string, sr
     }
     return 0;
 }
+
 export const getTokenDollarValue = async (token: string, amount: number): Promise<number> => {
     let ratio = 1;
 
     if (token !== "ton") {
-        const lpTokenData = await getData();
+        const lpTokenData = await getData(token);
 
         const tokenReserves = new BN(BigInt(lpTokenData.tokenReserves));
         const tonReserves = new BN(BigInt(lpTokenData.tonReserves));
@@ -160,32 +165,27 @@ export const getTokenDollarValue = async (token: string, amount: number): Promis
     const result = await coinsResponse.json();
     const tonPriceWithAmount = parseFloat((parseFloat(result['the-open-network'].usd) * amount).toPrecision(4));
 
-    return tonPriceWithAmount * ratio;
+    return parseFloat((tonPriceWithAmount * ratio).toFixed(4));
 }
 
 export const getRewards = async (token: string) => {
-    // TODO: move localStorage.getItem('address') to store?
     const owner = Address.parse(localStorage.getItem('address') as string);
     let wc = owner.workChain;
     let address = new BN(owner.hash);
-    // TODO: AMM Address from tokens.json
-    const res = await tonweb.call("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5",'get_rewards_of', [
-        [ 'num', wc.toString(10) ],
-        [ 'num', address.toString(10)]
+    const tokenObjects: any = getToken(token);
+    const res = await tonweb.call(tokenObjects.amm, 'get_rewards_of', [
+        ['num', wc.toString(10)],
+        ['num', address.toString(10)]
     ]);
-    console.log(res.stack[0][1]);
-    console.log(new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9);
 
-    // TODO: Change all toFixed and do it only in UI
-    return parseFloat((new BN(BigInt(res.stack[0][1]).toString()).toNumber() / 1e9).toFixed(8));
+    return parseNumber(new BN(eval(res.stack[0][1])));
 }
 
 export const generateSellLink = async (token: string, tokenAmount: number) => {
-    const tokenObjects: any = (supportedTokens.find((t: any) => t.name === token));
 
-    // TODO: AMM Address from tokens.json
+    const tokenObjects: any = getToken(token);
     let transfer = await DexActions.transferAndSwapOut(
-        Address.parse("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5"),
+        Address.parse(tokenObjects.amm),
         new BN(tokenAmount * 1e9),
         new BN(2)
     );
@@ -203,8 +203,8 @@ export const generateBuyLink = async (token: string, tonAmount: number, tokenAmo
     let transfer = await DexActions.swapIn(new BN(minAmount))
     const transferStr = transfer.toString();
     const bocT = stripBoc(transferStr);
-    // TODO: AMM Address from tokens.json
-    const deeplinkTransfer = `ton://transfer/EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5?amount=${tonAmount * 1e9}&text=${bocT}`;
+    const tokenObjects: any = getToken(token);
+    const deeplinkTransfer = `ton://transfer/${tokenObjects.amm}?amount=${tonAmount * 1e9}&text=${bocT}`;
 
     console.log(deeplinkTransfer);
     return window.open(deeplinkTransfer);
@@ -212,11 +212,9 @@ export const generateBuyLink = async (token: string, tonAmount: number, tokenAmo
 
 export const generateAddLiquidityLink = async (token: string, tonAmount: number | string, tokenAmount: number) => {
 
-    const tokenObjects: any = (supportedTokens.find((t: any) => t.name === token));
-
-    // TODO: AMM Address from tokens.json
+    const tokenObjects: any = getToken(token);
     const transferAndLiq = await DexActions.transferAndAddLiquidity(
-        Address.parse("EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5"), new BN(tokenAmount * 1e9), 10
+        Address.parse(tokenObjects.amm), new BN(tokenAmount * 1e9), 10
     )
     const boc = stripBoc(transferAndLiq.toString());
     const deeplink = `ton://transfer/${tokenObjects.address}?amount=${(parseFloat(tonAmount + "") + 0.2) * 1e9}&text=${boc}`;
@@ -227,31 +225,27 @@ export const generateAddLiquidityLink = async (token: string, tonAmount: number 
 
 export const generateRemoveLiquidityLink = async (token: string, tonAmount: number | string) => {
 
-    const data = await getData();
-    const ratio = parseFloat((parseFloat(tonAmount.toString()) / (new BN(BigInt(data.tonReserves).toString()).toNumber() / 1e9)).toFixed(2));
-    const totalLPs = parseFloat((new BN(BigInt(data.totalSupply).toString()).toNumber() / 1e9).toFixed(2));
+    const data = await getData(token);
+    const ratio = parseFloat(tonAmount.toString()) / parseNumber(new BN(eval(data.tonReserves)));
+    const totalLPs = parseNumber(new BN(eval(data.totalSupply)));
 
     const transferAndLiq = await DexActions.removeLiquidity(
         new BN(totalLPs * ratio * 1e9)
     )
 
     const boc = stripBoc(transferAndLiq.toString());
-    // TODO: AMM Address from tokens.json
-    const deeplink = `ton://transfer/EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5?amount=${0.2 * 1e9}&text=${boc}`;
+    const tokenObjects: any = getToken(token);
+    const deeplink = `ton://transfer/${tokenObjects.amm}?amount=${0.2 * 1e9}&text=${boc}`;
 
-    console.log(deeplink);
     return window.open(deeplink);
-
 }
 
-export const generateClaimRewards = async () => {
+export const generateClaimRewards = async (token: string) => {
 
     const claimRewards = await DexActions.claimRewards();
     const boc = stripBoc(claimRewards.toString());
-    // TODO: AMM Address from tokens.json
-    const deeplink = `ton://transfer/EQCSOxDQI94b0vGCN2Lc3DPan8v3P_JRt-z4PJ9Af2_BPHx5?amount=${0.2 * 1e9}&text=${boc}`;
+    const tokenObjects: any = getToken(token);
+    const deeplink = `ton://transfer/${tokenObjects.amm}?amount=${0.2 * 1e9}&text=${boc}`;
 
-    console.log(deeplink);
     return window.open(deeplink);
-
 }

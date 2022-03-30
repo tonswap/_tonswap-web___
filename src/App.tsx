@@ -203,7 +203,7 @@ function SelectToken() {
                              onClick={onSelectToken.bind(null, t)}
                              style={{
                                  width: '100px',
-                                 opacity: !selectToken.name || selectToken.name === t.name ? 1 : 0.2,
+                                 opacity: selectToken.name === t.name ? 1 : 0.2,
                                  margin: '4px',
                                  height: '100px',
                                  border: '1px solid black'
@@ -279,7 +279,7 @@ function RemoveLiquidity() {
     const {token} = store;
 
     const getBalances = useCallback(() => {
-        return getTokensOfLPBalances();
+        return getTokensOfLPBalances(token.name);
     }, [token]);
 
     return <div>
