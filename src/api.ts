@@ -46,8 +46,12 @@ export const getTokensOfLPBalances = async (token: string) => {
 (window as any).getLPTokenBalance = getLPTokenBalance;
 (window as any).getData = getData;
 
-const parseNumber = (num: any, units: number = 1e9, decimalPoints: number = 4) => {
-    return parseFloat(parseFloat(num.div(new BN(units)).toString() + '.' + num.mod(new BN(units)).toString()).toFixed(4));
+const parseNumber = (num: any, units: number = 9, decimalPoints: number = 4): number => {
+    if (num.toString().length <= 9) {
+        return parseFloat(parseFloat('0.' + num.toString().padStart(units).replaceAll(' ', '0')).toFixed(decimalPoints));
+    } else {
+        return parseFloat(parseFloat(num.div(new BN(10**units)).toString() + '.' + num.mod(new BN(10**units)).toString()).toFixed(decimalPoints));
+    }
 }
 
 const _getTokenBalance = async (tokenAddress: string) => {
@@ -178,6 +182,7 @@ export const getRewards = async (token: string) => {
         ['num', address.toString(10)]
     ]);
 
+    debugger;
     return parseNumber(new BN(eval(res.stack[0][1])));
 }
 
